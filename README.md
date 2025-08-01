@@ -229,7 +229,7 @@ python zanao_analyzer/data_cleanup.py
         # ... 其他配置 ...
         volumes:
         # ... 其他挂载 ...
-        - '/mnt/<你存储该项目的硬盘>/<你存储该项目的位置>/Zanao-LLM-Analyzer/完整工程实现/data/zanao_detailed_info:/data:ro'
+        - '/mnt/<你存储该项目的硬盘>/<你存储该项目的位置>/Zanao-LLM-Analyzer/data/zanao_detailed_info:/data:ro'
     ```
 - 然后启动Dify
     ```bash
