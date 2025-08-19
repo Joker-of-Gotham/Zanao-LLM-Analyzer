@@ -47,12 +47,11 @@ def run_classification_module(conn: sqlite3.Connection):
     运行帖子分类模块 (原similarity_module)，将结果存入新的 post_classifications 表。
     """
     print("\n--- Running Post Classification Module ---")
-    sim_engine = SimilarityEngine()
+    sim_engine = SimilarityEngine() # SimilarityEngine 成功初始化
     cursor = conn.cursor()
     
     try:
-        # 查找所有尚未进行分类的帖子
-        # 通过 LEFT JOIN 查找 base_analysis 中存在但 post_classifications 中不存在的记录
+        # ... (查找未分类帖子的 SQL 查询，无需修改) ...
         cursor.execute("""
             SELECT ba.id, ba.entities_json
             FROM base_analysis ba
@@ -70,26 +69,35 @@ def run_classification_module(conn: sqlite3.Connection):
         data_to_insert = []
         for post_id, entities_json in posts_to_classify:
             try:
-                # 确保实体JSON可被正确加载
                 entities = json.loads(entities_json)
-                # 提取所有非空的实体文本
                 entity_texts = [e['text'] for e in entities if e.get('text')]
             except (json.JSONDecodeError, TypeError):
-                # 如果JSON格式错误或为空，则跳过此条目
                 continue
             
             if not entity_texts: continue
 
-            # 调用相似度引擎进行匹配
-            matches = sim_engine.match_entities_to_classification(entity_texts)
+            # ✅✅✅ 核心修正 ✅✅✅
+            # 1. 将实体列表拼接成一个字符串
+            query_text_from_entities = " ".join(entity_texts)
+            
+            # 2. 调用正确的、存在的方法名，并将拼接后的字符串传入
+            #    我们只取最匹配的那一个分类 (top_k=1)
+            matches = sim_engine.match_query_to_classification(query_text_from_entities, top_k=1)
+            # 🔴 删除错误的一行: matches = sim_engine.match_entities_to_classification(entity_texts)
             
             for match in matches:
-                # 准备插入新表的数据元组，包含4个值
+                # 准备插入新表的数据元组
+                # 这里有一个小问题：我们不知道是哪个源实体匹配上了
+                # 一个简单的处理是，我们记录拼接后的文本
+                # 或者，我们也可以遍历所有实体，但这样效率较低
+                # 先用一个简单的方式，记录第一个实体作为源实体
+                source_entity = entity_texts[0] if entity_texts else 'unknown'
+                
                 data_to_insert.append((
                     post_id,
-                    match['entity'],             # 新增：源实体
-                    match['classification'],     # 匹配到的分类
-                    match['score']               # 分数
+                    source_entity,              # 源实体
+                    match['classification'],    # 匹配到的分类
+                    match['score']              # 分数
                 ))
         
         # 批量插入所有找到的匹配结果

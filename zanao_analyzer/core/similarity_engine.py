@@ -161,7 +161,7 @@ class SimilarityEngine:
 
                 for score, idx in zip(scores, indices):
                     # 在这里，我们可以用一个比较宽松的阈值来确保能“翻译”成功
-                    if score > 0.6: 
+                    if score > 0.3: 
                         final_db_classes.add(self.db_classification_labels[idx])
             
             return list(final_db_classes)
