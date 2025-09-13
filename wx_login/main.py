@@ -19,7 +19,7 @@ if project_root not in sys.path:
 from wx_login.wx_info_handler import get_wx_info
 from group_chat_getter.exporter import (
     decrypt_database, merge_msg_databases,
-    get_all_group_chats, get_messages_for_chat,
+    get_all_chats_and_contacts, get_messages_for_chat, # <-- 修改后的导入
     export_to_txt, export_to_csv
 )
 
@@ -68,21 +68,15 @@ def run_main():
         help='WeChat Files 根目录')
     args = parser.parse_args()
 
-    users = safe_get_wx_info(wx_offs, args.wechat_path)
-    if not users:
-        print("[x] 无有效微信登录信息, 请确保微信正在运行并使用管理员权限启动脚本.")
-        sys.exit(1)
+    # 我们不再从内存中读取信息，而是直接指定
+    key = '15355786d46146659fb56f06b2e802ba18917f8a463d4b269da2158e60bbf82e'
+    wx_dir = os.path.normpath('C:\\Users\\MLTZ\\Documents\\WeChat Files\\wxid_0izu7e5dhup622')
 
-    print("\n [√] 最终成功获取到 {} 个有效微信用户的信息！\n".format(len(users)))
     print("=" * 50)
-    print("               用户信息详情")
+    print("    [!] 已硬编码用户信息，跳过内存读取")
+    print(f"    [+] Key: {key[:15]}...") # 只打印部分key
+    print(f"    [+] WxDir: {wx_dir}")
     print("=" * 50)
-    pprint(users[0])
-    print("=" * 50)
-
-    user = users[0]
-    key = user['key']
-    wx_dir = os.path.normpath(user['wx_dir'])
 
     # 解密主数据库
     temp_dir = os.path.join(project_root, 'temp_decrypted')
@@ -114,13 +108,13 @@ def run_main():
         sys.exit(1)
     print(" [√] 合并成功，共合并 {} 个数据库".format(len(dec_list)))
 
-    print("\n[5] 正在获取群聊列表...")
-    chats = get_all_group_chats(dec_micro)
+    print("\n[5] 正在获取所有聊天列表...")
+    chats = get_all_chats_and_contacts(dec_micro)
     if not chats:
-        print("[x] 未找到任何群聊.")
+        print("[x] 未找到任何聊天会话.")
         shutil.rmtree(temp_dir)
         sys.exit(1)
-    print(" [√] 共找到 {} 个群聊".format(len(chats)))
+    print(" [√] 共找到 {} 个聊天会话 (包括好友、群聊和文件助手)".format(len(chats)))
 
     # 选择群聊
     if args.chat_index:

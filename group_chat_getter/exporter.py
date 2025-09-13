@@ -105,7 +105,6 @@ def get_messages_for_chat(db_path: str, chat_id: str, start_ts: int, end_ts: int
         cur = conn.cursor()
 
         # 第一步：根据 chat_id (即群聊的 UsrName) 从 Name2ID 表中获取 TalkerId
-        # 修复了表名和列名错误
         cur.execute("SELECT rowid FROM Name2ID WHERE UsrName = ?", (chat_id,))
         row = cur.fetchone()
         if not row:
@@ -114,13 +113,12 @@ def get_messages_for_chat(db_path: str, chat_id: str, start_ts: int, end_ts: int
         
         tid = row[0]
 
-        # 第二步：使用 TalkerId 查询 MSG 表，获取所有聊天记录
-        # 这里我们获取了 StrTalker (发送者 ID) 和 StrContent (消息内容)
+        # 第二步：使用 TalkerId 查询 MSG 表，并【恢复时间限制】
         cur.execute(
             "SELECT StrTalker, StrContent, CreateTime, Type, IsSender"
-            " FROM MSG WHERE TalkerId = ? AND CreateTime BETWEEN ? AND ?"
+            " FROM MSG WHERE TalkerId = ? AND CreateTime BETWEEN ? AND ?" # <-- 时间限制已恢复
             " ORDER BY CreateTime ASC",
-            (tid, start_ts, end_ts)
+            (tid, start_ts, end_ts)  # <-- 参数也已恢复为3个
         )
         for r in cur.fetchall():
             msgs.append(dict(r))
@@ -129,6 +127,63 @@ def get_messages_for_chat(db_path: str, chat_id: str, start_ts: int, end_ts: int
     except Exception as e:
         print(f"[错误] 查询消息失败: {e}")
     return msgs
+
+
+# 这是最终的、支持备注名的函数，请用它替换 exporter.py 中的旧版本
+def get_all_chats_and_contacts(db_path: str) -> list:
+    """从 MicroMsg.db 中获取所有有意义的聊天会话列表（文件助手、好友、群聊），并优先使用备注名"""
+    all_chats = []
+    try:
+        conn = sqlite.connect(db_path)
+        cur = conn.cursor()
+
+        # [修改点 1] 在查询语句中，增加了 Remark 字段
+        query = """
+            SELECT UserName, NickName, Remark FROM Contact 
+            WHERE (UserName LIKE '%@chatroom' OR Type = 3 OR UserName = 'filehelper')
+            AND NickName != '' 
+            AND UserName NOT LIKE 'gh_%'
+        """
+        cur.execute(query)
+        
+        results = cur.fetchall()
+        conn.close()
+
+        file_helper = None
+        friends = []
+        groups = []
+
+        for row in results:
+            # [修改点 2] 接收三个返回值：用户名、昵称、备注
+            username, nickname, remark = row[0], row[1], row[2]
+
+            if username == 'filehelper':
+                file_helper = (username, "文件传输助手")
+                
+            elif username.endswith('@chatroom'):
+                # 群聊直接使用群聊名称 (NickName)
+                groups.append((username, nickname))
+                
+            else: 
+                # [修改点 3] 核心逻辑：如果备注 (remark) 存在，就用备注；否则，用昵称 (nickname)
+                display_name = remark if remark else nickname
+                friends.append((username, display_name))
+        
+        # 后续的排序和组合逻辑保持不变
+        friends.sort(key=lambda x: x[1])
+        groups.sort(key=lambda x: x[1])
+
+        if file_helper:
+            all_chats.append(file_helper)
+        
+        all_chats.extend(friends)
+        all_chats.extend(groups)
+
+        return all_chats
+
+    except Exception as e:
+        print(f"[错误] 获取所有聊天列表失败: {e}")
+        return []
 
 
 def export_to_txt(messages: list, output_path: str, chat_info: dict) -> None:
