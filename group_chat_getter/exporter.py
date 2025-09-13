@@ -3,7 +3,7 @@
 import os
 import shutil
 import csv
-from sqlcipher3 import dbapi2 as sqlite
+from pysqlcipher3 import dbapi2 as sqlite
 from datetime import datetime
 from Cryptodome.Cipher import AES
 import hmac
@@ -67,7 +67,7 @@ def merge_msg_databases(db_list: list, merged_db_path: str) -> bool:
     for idx, f in enumerate(db_list[1:], start=1):
         try:
             cur.execute(f"ATTACH DATABASE '{f}' AS db{idx}")
-            cur.execute(f"INSERT INTO MSG SELECT * FROM db{idx}.MSG")
+            cur.execute(f"INSERT OR IGNORE INTO MSG SELECT * FROM db{idx}.MSG")
             cur.execute(f"DETACH DATABASE db{idx}")
         except Exception as e:
             print(f"  [合并警告] 合并 {os.path.basename(f)} 时: {e}")

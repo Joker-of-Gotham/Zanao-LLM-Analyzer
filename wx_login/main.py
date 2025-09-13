@@ -6,7 +6,7 @@ import argparse
 import shutil
 from pprint import pprint
 from datetime import datetime
-from sqlcipher3 import dbapi2 as sqlite
+from pysqlcipher3 import dbapi2 as sqlite
 
 # 动态设置项目根路径，确保无论从哪里运行都能找到模块
 script_path = os.path.abspath(__file__)
